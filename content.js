@@ -218,6 +218,8 @@ function extractPostData(element, interactionType) {
 // Function to save interacted post
 async function saveInteractedPost(postData) {
   try {
+    console.log('X Post Tracker: saveInteractedPost called with data:', postData);
+    
     // Check if extension context is still valid
     if (!chrome.storage) {
       console.log('X Post Tracker: Extension context invalidated, skipping save');
@@ -227,6 +229,7 @@ async function saveInteractedPost(postData) {
     // Get existing posts
     const result = await chrome.storage.local.get(['interactedPosts']);
     const interactedPosts = result.interactedPosts || [];
+    console.log('X Post Tracker: Existing posts count:', interactedPosts.length);
 
     // Check if post already exists with same interaction type
     const existingIndex = interactedPosts.findIndex(post => 
@@ -236,13 +239,16 @@ async function saveInteractedPost(postData) {
     if (existingIndex !== -1) {
       // Update existing post
       interactedPosts[existingIndex] = postData;
+      console.log('X Post Tracker: Updated existing post at index:', existingIndex);
     } else {
       // Add new post
       interactedPosts.unshift(postData);
+      console.log('X Post Tracker: Added new post, total count:', interactedPosts.length);
     }
 
     // Save back to storage
     await chrome.storage.local.set({ interactedPosts: interactedPosts });
+    console.log('X Post Tracker: Posts saved to storage successfully');
     
     console.log('Post saved:', postData);
     
@@ -316,7 +322,208 @@ function handleInteractionClick(event) {
   console.log('X Post Tracker: Clicked element tag:', event.target.tagName);
   
 
-  // Check for repost confirmation click first - target the retweetConfirm div
+  // Check for tweetButton click first - this is the final Post button
+  let tweetButton = event.target.closest('[data-testid="tweetButton"]');
+  
+  // Fallback: check if the clicked element itself has the data-testid
+  if (!tweetButton && event.target.getAttribute('data-testid') === 'tweetButton') {
+    tweetButton = event.target;
+  }
+  
+  // Additional fallback: check if the clicked element contains "Post" text and is inside a tweetButton
+  if (!tweetButton && event.target.textContent && event.target.textContent.trim() === 'Post') {
+    const parentButton = event.target.closest('button[data-testid="tweetButton"]');
+    if (parentButton) {
+      tweetButton = parentButton;
+    }
+  }
+  
+  // Specific fallback for nested span structure: check if clicked element has the specific classes
+  if (!tweetButton && event.target.classList && event.target.classList.contains('css-1jxf684') && 
+      event.target.classList.contains('r-bcqeeo') && event.target.classList.contains('r-1ttztb7') && 
+      event.target.classList.contains('r-qvutc0') && event.target.classList.contains('r-poiln3')) {
+    
+    // Look for the parent button with tweetButton data-testid
+    let currentElement = event.target;
+    let attempts = 0;
+    while (currentElement && attempts < 10) {
+      if (currentElement.tagName === 'BUTTON' && currentElement.getAttribute('data-testid') === 'tweetButton') {
+        tweetButton = currentElement;
+        console.log('X Post Tracker: Found tweetButton via nested span detection');
+        break;
+      }
+      currentElement = currentElement.parentElement;
+      attempts++;
+    }
+  }
+  
+  // Additional fallback: check if any parent element has the tweetButton data-testid
+  if (!tweetButton) {
+    let currentElement = event.target;
+    let attempts = 0;
+    while (currentElement && attempts < 10) {
+      if (currentElement.getAttribute && currentElement.getAttribute('data-testid') === 'tweetButton') {
+        tweetButton = currentElement;
+        break;
+      }
+      currentElement = currentElement.parentElement;
+      attempts++;
+    }
+  }
+  
+  // Final fallback: check if the clicked element or any parent contains "Post" and is inside a button
+  if (!tweetButton) {
+    let currentElement = event.target;
+    let attempts = 0;
+    while (currentElement && attempts < 10) {
+      if (currentElement.textContent && currentElement.textContent.trim() === 'Post') {
+        // Look for a parent button
+        let buttonElement = currentElement;
+        let buttonAttempts = 0;
+        while (buttonElement && buttonAttempts < 10) {
+          if (buttonElement.tagName === 'BUTTON') {
+            // Check if this button has tweetButton data-testid or contains Post text
+            if (buttonElement.getAttribute('data-testid') === 'tweetButton' || 
+                buttonElement.textContent.includes('Post')) {
+              tweetButton = buttonElement;
+              console.log('X Post Tracker: Found tweetButton via Post text in button');
+              break;
+            }
+          }
+          buttonElement = buttonElement.parentElement;
+          buttonAttempts++;
+        }
+        if (tweetButton) break;
+      }
+      currentElement = currentElement.parentElement;
+      attempts++;
+    }
+  }
+  
+  // Ultimate fallback: check if clicked element is inside any existing tweetButton on the page
+  if (!tweetButton) {
+    const allTweetButtons = document.querySelectorAll('[data-testid="tweetButton"]');
+    for (let i = 0; i < allTweetButtons.length; i++) {
+      const btn = allTweetButtons[i];
+      if (btn.contains(event.target)) {
+        tweetButton = btn;
+        console.log('X Post Tracker: Found tweetButton via contains() method');
+        break;
+      }
+    }
+  }
+  
+  console.log('X Post Tracker: Checking for tweetButton, found:', tweetButton);
+  console.log('X Post Tracker: Event target:', event.target);
+  console.log('X Post Tracker: Event target tagName:', event.target.tagName);
+  console.log('X Post Tracker: Event target classes:', event.target.className);
+  console.log('X Post Tracker: Event target data-testid:', event.target.getAttribute('data-testid'));
+  console.log('X Post Tracker: Event target textContent:', event.target.textContent);
+  
+  if (tweetButton) {
+    console.log('X Post Tracker: Successfully found tweetButton!');
+  } else {
+    console.log('X Post Tracker: Failed to find tweetButton with all methods');
+  }
+  
+  // Show parent elements for debugging
+  let parent = event.target.parentElement;
+  let level = 0;
+  console.log('X Post Tracker: Parent elements:');
+  while (parent && level < 5) {
+    console.log(`X Post Tracker:   Level ${level}:`, parent.tagName, parent.className, parent.getAttribute('data-testid'));
+    parent = parent.parentElement;
+    level++;
+  }
+  
+  // Check if there are any tweetButton elements on the page
+  const allTweetButtons = document.querySelectorAll('[data-testid="tweetButton"]');
+  console.log('X Post Tracker: All tweetButton elements on page:', allTweetButtons.length);
+  if (allTweetButtons.length > 0) {
+    allTweetButtons.forEach((btn, index) => {
+      console.log(`X Post Tracker:   TweetButton ${index}:`, btn, btn.textContent);
+    });
+  }
+  
+  // Check all Post text elements on the page
+  const allPostElements = document.querySelectorAll('span');
+  const postTextElements = [];
+  allPostElements.forEach((span, index) => {
+    if (span.textContent && span.textContent.trim() === 'Post') {
+      postTextElements.push(span);
+    }
+  });
+  console.log('X Post Tracker: All Post text elements on page:', postTextElements.length);
+  postTextElements.forEach((span, index) => {
+    const isInsideTweetButton = span.closest('[data-testid="tweetButton"]') !== null;
+    console.log(`X Post Tracker:   Post element ${index}:`, span, 'Inside tweetButton:', isInsideTweetButton);
+  });
+  
+  if (tweetButton) {
+    console.log('X Post Tracker: Tweet button (Post) clicked!');
+    console.log('X Post Tracker: Clicked element:', event.target);
+    console.log('X Post Tracker: Tweet button element:', tweetButton);
+    console.log('X Post Tracker: Pending repost data:', pendingRepostData);
+    
+    // Check if this is a Post element inside a tweetButton
+    const isPostInTweetButton = event.target.textContent && event.target.textContent.trim() === 'Post' && 
+                                event.target.closest('[data-testid="tweetButton"]') !== null;
+    console.log('X Post Tracker: Is Post element inside tweetButton:', isPostInTweetButton);
+    
+    // Debug: Check if we have any repost buttons on the page
+    const allRepostButtons = document.querySelectorAll('[data-testid="retweet"], [data-testid="unretweet"]');
+    console.log('X Post Tracker: All repost buttons on page:', allRepostButtons.length);
+    
+    // Debug: Check if we have any articles on the page
+    const allArticles = document.querySelectorAll('article[data-testid="tweet"]');
+    console.log('X Post Tracker: All tweet articles on page:', allArticles.length);
+    
+    // Use the stored tweet data from when the repost button was clicked
+    if (pendingRepostData) {
+      console.log('X Post Tracker: Using stored tweet data for Post button:', pendingRepostData);
+      saveInteractedPost(pendingRepostData);
+      pendingRepostData = null; // Clear the stored data
+    } else {
+      console.log('X Post Tracker: No pending repost data found for Post button');
+      console.log('X Post Tracker: This means the repost button was not clicked first!');
+      console.log('X Post Tracker: Attempting to extract compose content from Post button...');
+      
+      // Extract content from the compose textarea
+      const composeTextarea = document.querySelector('[data-testid="tweetTextarea_0"]');
+      console.log('X Post Tracker: Compose textarea found:', composeTextarea);
+      
+      if (composeTextarea) {
+        const composeText = composeTextarea.textContent || composeTextarea.innerText || '';
+        console.log('X Post Tracker: Compose text content:', composeText);
+        
+        if (composeText.trim()) {
+          // Create post data from compose content
+          const postData = {
+            id: 'compose_' + Date.now(), // Generate unique ID for compose content
+            text: composeText.trim(),
+            author: 'You', // Since it's user's own content
+            authorHandle: 'compose',
+            timestamp: new Date().toISOString(),
+            interactionType: 'repost', // Treat as repost since it's being posted
+            interactedAt: new Date().toISOString(),
+            url: window.location.href
+          };
+          
+          console.log('X Post Tracker: Created post data from compose content:', postData);
+          console.log('X Post Tracker: Calling saveInteractedPost...');
+          saveInteractedPost(postData);
+          console.log('X Post Tracker: saveInteractedPost called successfully');
+        } else {
+          console.log('X Post Tracker: No text content found in compose textarea');
+        }
+      } else {
+        console.log('X Post Tracker: No compose textarea found');
+      }
+    }
+    return;
+  }
+
+  // Check for repost confirmation click - target the retweetConfirm div
   const repostConfirmDiv = event.target.closest('[data-testid="retweetConfirm"]');
   if (repostConfirmDiv) {
     console.log('X Post Tracker: Repost confirmation div clicked!');
@@ -371,10 +578,17 @@ function handleInteractionClick(event) {
   } else if (repostButton) {
     // For repost button click, store the tweet data for later use
     console.log('X Post Tracker: Repost button clicked - storing tweet data for confirmation');
+    console.log('X Post Tracker: Repost button element:', repostButton);
+    
     const tweetData = extractPostData(repostButton, 'repost');
+    console.log('X Post Tracker: Extracted tweet data:', tweetData);
+    
     if (tweetData) {
       pendingRepostData = tweetData;
       console.log('X Post Tracker: Tweet data stored for repost confirmation:', tweetData);
+      console.log('X Post Tracker: Pending repost data is now set!');
+    } else {
+      console.log('X Post Tracker: Failed to extract tweet data from repost button');
     }
     return;
   } else if (commentButton) {
@@ -424,6 +638,26 @@ function observeDOM() {
             // Re-attach event listeners to new content
             attachEventListeners(node);
             
+            // Check for tweetButton elements (Final Post button)
+            const tweetButtonElements = node.querySelectorAll ? 
+              node.querySelectorAll('[data-testid="tweetButton"]') : [];
+            
+            tweetButtonElements.forEach(element => {
+              console.log('X Post Tracker: Found tweetButton element');
+              element.addEventListener('click', function(event) {
+                console.log('X Post Tracker: Tweet button clicked via observer!');
+                console.log('X Post Tracker: Pending repost data:', pendingRepostData);
+                
+                // Use the stored tweet data from when the repost button was clicked
+                if (pendingRepostData) {
+                  console.log('X Post Tracker: Using stored tweet data for Post button (observer):', pendingRepostData);
+                  saveInteractedPost(pendingRepostData);
+                  pendingRepostData = null; // Clear the stored data
+                } else {
+                  console.log('X Post Tracker: No pending repost data found for Post button (observer)');
+                }
+              });
+            });
 
             // Check for repost confirmation div elements
             const repostConfirmElements = node.querySelectorAll ? 
@@ -554,6 +788,24 @@ function attachEventListeners(container = document) {
     button.addEventListener('click', handleInteractionClick, true);
   });
   
+  // Add specific listeners for tweetButton elements (Final Post button)
+  const tweetButtonElements = container.querySelectorAll('[data-testid="tweetButton"]');
+  tweetButtonElements.forEach(element => {
+    console.log('X Post Tracker: Found existing tweetButton element');
+    element.addEventListener('click', function(event) {
+      console.log('X Post Tracker: Tweet button clicked via direct listener!');
+      console.log('X Post Tracker: Pending repost data:', pendingRepostData);
+      
+      // Use the stored tweet data from when the repost button was clicked
+      if (pendingRepostData) {
+        console.log('X Post Tracker: Using stored tweet data for Post button (direct):', pendingRepostData);
+        saveInteractedPost(pendingRepostData);
+        pendingRepostData = null; // Clear the stored data
+      } else {
+        console.log('X Post Tracker: No pending repost data found for Post button (direct)');
+      }
+    });
+  });
 
   // Add specific listeners for repost confirmation div elements
   const repostConfirmElements = container.querySelectorAll('[data-testid="retweetConfirm"]');
@@ -630,6 +882,7 @@ function attachEventListeners(container = document) {
     bookmarkButtons.length, 'bookmark buttons,',
     repostButtons.length, 'repost buttons,',
     commentButtons.length, 'comment buttons,',
+    tweetButtonElements.length, 'tweet button elements,',
     repostConfirmElements.length, 'repost confirmation elements,',
     unretweetConfirmElements.length, 'undo repost confirmation elements'
   );
