@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X Post Tracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>X Post Tracker</h1>
+      <div class="stats">
+        <span id="totalPosts">0</span> interactions
+      </div>
+    </header>
+
+    <div class="controls">
+      <button id="clearAll" class="btn btn-danger">Clear All</button>
+      <button id="exportData" class="btn btn-secondary">Export</button>
+    </div>
+
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="Search posts..." class="search-input">
+    </div>
+
+    <div class="filter-container">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="like">❤️ Likes</button>
+      <button class="filter-btn" data-filter="bookmark">🔖 Bookmarks</button>
+      <button class="filter-btn" data-filter="repost">🔄 Reposts</button>
+      <button class="filter-btn" data-filter="comment">💬 Comments</button>
+    </div>
+
+    <div class="posts-container">
+      <div id="postsList" class="posts-list">
+        <div class="loading">Loading your interactions...</div>
+      </div>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <div class="empty-icon">💙</div>
+      <h3>No interactions yet</h3>
+      <p>Start interacting with posts on X to see them here!</p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
